@@ -1,187 +1,111 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { expect } = require('chai');
+const { ethers } = require('hardhat');
 
 const tokens = (n) => {
-  return ethers.utils.parseUnits(n.toString(), "ether");
+  return ethers.utils.parseUnits(n.toString(), 'ether');
 };
 
 const ether = tokens;
 
-describe("DAO", () => {
+describe('DAO', () => {
   let token, dao;
-  let deployer, funder;
+  let deployer, funder, investor1, investor2, investor3, investor4, investor5, recipient, user;
 
   beforeEach(async () => {
     let accounts = await ethers.getSigners();
     deployer = accounts[0];
     funder = accounts[1];
+    investor1 = accounts[2];
+    investor2 = accounts[3];
+    investor3 = accounts[4];
+    investor4 = accounts[5];
+    investor5 = accounts[6];
+    recipient = accounts[7];
+    user = accounts[8];
 
     // Set up accounts
 
     // Deploy Token
-    const Token = await ethers.getContractFactory("Token");
-    token = await Token.deploy("Dapp University", "DAPP", "1000000");
+    const Token = await ethers.getContractFactory('Token');
+    token = await Token.deploy('Dapp University', 'DAPP', '1000000');
+
+    transaction = await token.connect(deployer).transfer(investor1.address, tokens(200000));
+    await transaction.wait();
+
+    transaction = await token.connect(deployer).transfer(investor2.address, tokens(200000));
+    await transaction.wait();
+
+    transaction = await token.connect(deployer).transfer(investor3.address, tokens(200000));
+    await transaction.wait();
+
+    transaction = await token.connect(deployer).transfer(investor4.address, tokens(200000));
+    await transaction.wait();
+
+    transaction = await token.connect(deployer).transfer(investor5.address, tokens(200000));
+    await transaction.wait();
 
     // Deploy DAO
-    const DAO = await ethers.getContractFactory("DAO");
-    dao = await DAO.deploy(token.address, "500000000000000000000001");
+    // Set Quorum to > 50% of token total supply, 500k toekns + 1 weii.e., 5000000000000000000000001
+    const DAO = await ethers.getContractFactory('DAO');
+    dao = await DAO.deploy(token.address, '500000000000000000000001');
 
     // Funder sends 100 Ether to DAO treasury for Governance
     await funder.sendTransaction({ to: dao.address, value: ether(100) });
   });
 
-  describe("Deployment", () => {
-    it("sends ether to the DAO treasury", async () => {
-      expect(await ethers.provider.getBalance(dao.address)).to.equal(
-        ether(100),
-      );
+  describe('Deployment', () => {
+    it('sends ether to the DAO treasury', async () => {
+      expect(await ethers.provider.getBalance(dao.address)).to.equal(ether(100));
     });
 
-    it("returns token address", async () => {
+    it('returns token address', async () => {
       expect(await dao.token()).to.equal(token.address);
     });
 
-    it("returns quorum", async () => {
+    it('returns quorum', async () => {
       expect(await dao.quorum()).to.equal(500000000000000000000001n);
     });
   });
 
-  //   describe("Sending Tokens", () => {
-  //     let amount, transaction, result;
+  describe('Proposal creation', () => {
+    let transaction, result;
+    describe('Success', () => {
+      beforeEach(async () => {
+        transaction = await dao
+          .connect(investor1)
+          .createProposal('Proposal 1', ether(100), recipient.address);
+        result = await transaction.wait();
+      });
 
-  //     describe("Success", () => {
-  //       beforeEach(async () => {
-  //         amount = tokens(100);
-  //         transaction = await token
-  //           .connect(deployer)
-  //           .transfer(receiver.address, amount);
-  //         result = await transaction.wait();
-  //       });
+      it('updates proposal count', async () => {
+        expect(await dao.proposalCount()).to.equal(1);
+      });
 
-  //       it("transfers token balances", async () => {
-  //         expect(await token.balanceOf(deployer.address)).to.equal(
-  //           tokens(999900),
-  //         );
-  //         expect(await token.balanceOf(receiver.address)).to.equal(amount);
-  //       });
+      it('updates proposal mapping', async () => {
+        const proposal = await dao.proposals(1);
+        expect(proposal.id).to.equal(1);
+        expect(proposal.amount).to.equal(ether(100));
+        expect(proposal.recipient).to.equal(recipient.address);
+      });
 
-  //       it("emits a Transfer event", async () => {
-  //         await expect(transaction)
-  //           .to.emit(token, "Transfer")
-  //           .withArgs(deployer.address, receiver.address, amount);
-  //       });
-  //     });
+      it('emits a propose event', async () => {
+        await expect(transaction)
+          .to.emit(dao, 'Propose')
+          .withArgs(1, ether(100), recipient.address, investor1.address);
+      });
+    });
+  });
 
-  //     describe("Failure", () => {
-  //       it("rejects insufficient balances", async () => {
-  //         const invalidAmount = tokens(100000000);
-  //         await expect(
-  //           token.connect(deployer).transfer(receiver.address, invalidAmount),
-  //         ).to.be.reverted;
-  //       });
+  describe('Failure', () => {
+    it('rejects invalid amount', async () => {
+      await expect(
+        dao.connect(investor1).createProposal('Proposal 1', ether(1000), recipient.address)
+      ).to.be.reverted;
+    });
 
-  //       it("rejects invalid recipent", async () => {
-  //         const amount = tokens(100);
-  //         await expect(
-  //           token
-  //             .connect(deployer)
-  //             .transfer("0x0000000000000000000000000000000000000000", amount),
-  //         ).to.be.reverted;
-  //       });
-  //     });
-  //   });
-
-  //   describe("Approving Tokens", () => {
-  //     let amount, transaction, result;
-
-  //     beforeEach(async () => {
-  //       amount = tokens(100);
-  //       transaction = await token
-  //         .connect(deployer)
-  //         .approve(exchange.address, amount);
-  //       result = await transaction.wait();
-  //     });
-
-  //     describe("Success", () => {
-  //       it("allocates an allowance for delegated token spending", async () => {
-  //         expect(
-  //           await token.allowance(deployer.address, exchange.address),
-  //         ).to.equal(amount);
-  //       });
-
-  //       it("emits an Approval event", async () => {
-  //         const event = result.events[0];
-  //         expect(event.event).to.equal("Approval");
-
-  //         const args = event.args;
-  //         expect(args.owner).to.equal(deployer.address);
-  //         expect(args.spender).to.equal(exchange.address);
-  //         expect(args.value).to.equal(amount);
-  //       });
-  //     });
-
-  //     describe("Failure", () => {
-  //       it("rejects invalid spenders", async () => {
-  //         await expect(
-  //           token
-  //             .connect(deployer)
-  //             .approve("0x0000000000000000000000000000000000000000", amount),
-  //         ).to.be.reverted;
-  //       });
-  //     });
-  //   });
-
-  //   describe("Delegated Token Transfers", () => {
-  //     let amount, transaction, result;
-
-  //     beforeEach(async () => {
-  //       amount = tokens(100);
-  //       transaction = await token
-  //         .connect(deployer)
-  //         .approve(exchange.address, amount);
-  //       result = await transaction.wait();
-  //     });
-
-  //     describe("Success", () => {
-  //       beforeEach(async () => {
-  //         transaction = await token
-  //           .connect(exchange)
-  //           .transferFrom(deployer.address, receiver.address, amount);
-  //         result = await transaction.wait();
-  //       });
-
-  //       it("transfers token balances", async () => {
-  //         expect(await token.balanceOf(deployer.address)).to.be.equal(
-  //           ethers.utils.parseUnits("999900", "ether"),
-  //         );
-  //         expect(await token.balanceOf(receiver.address)).to.be.equal(amount);
-  //       });
-
-  //       it("rests the allowance", async () => {
-  //         expect(
-  //           await token.allowance(deployer.address, exchange.address),
-  //         ).to.be.equal(0);
-  //       });
-
-  //       it("emits a Transfer event", async () => {
-  //         const event = result.events[0];
-  //         expect(event.event).to.equal("Transfer");
-
-  //         const args = event.args;
-  //         expect(args.from).to.equal(deployer.address);
-  //         expect(args.to).to.equal(receiver.address);
-  //         expect(args.value).to.equal(amount);
-  //       });
-  //     });
-
-  //     describe("Failure", async () => {
-  //       // Attempt to transfer too many tokens
-  //       const invalidAmount = tokens(100000000); // 100 Million, greater than total supply
-  //       await expect(
-  //         token
-  //           .connect(exchange)
-  //           .transferFrom(deployer.address, receiver.address, invalidAmount),
-  //       ).to.be.reverted;
-  //     });
-  //   });
+    it('rejects non-investor', async () => {
+      await expect(dao.connect(user).createProposal('Proposal 1', ether(100), recipient.address)).to
+        .be.reverted;
+    });
+  });
 });
