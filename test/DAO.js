@@ -69,11 +69,10 @@ describe('DAO', () => {
 
   describe('Proposal creation', () => {
     let transaction, result;
+
     describe('Success', () => {
       beforeEach(async () => {
-        transaction = await dao
-          .connect(investor1)
-          .createProposal('Proposal 1', ether(100), recipient.address);
+        transaction = await dao.connect(investor1).createProposal('Proposal 1', ether(100), recipient.address);
         result = await transaction.wait();
       });
 
@@ -89,23 +88,72 @@ describe('DAO', () => {
       });
 
       it('emits a propose event', async () => {
-        await expect(transaction)
-          .to.emit(dao, 'Propose')
-          .withArgs(1, ether(100), recipient.address, investor1.address);
+        await expect(transaction).to.emit(dao, 'Propose').withArgs(1, ether(100), recipient.address, investor1.address);
+      });
+    });
+
+    describe('Failure', () => {
+      it('rejects invalid amount', async () => {
+        await expect(dao.connect(investor1).createProposal('Proposal 1', ether(1000), recipient.address)).to.be.reverted;
+      });
+
+      it('rejects non-investor', async () => {
+        await expect(dao.connect(user).createProposal('Proposal 1', ether(100), recipient.address)).to.be.reverted;
       });
     });
   });
 
-  describe('Failure', () => {
-    it('rejects invalid amount', async () => {
-      await expect(
-        dao.connect(investor1).createProposal('Proposal 1', ether(1000), recipient.address)
-      ).to.be.reverted;
+  describe('Voting', () => {
+    let transaction, result;
+
+    beforeEach(async () => {
+      transaction = await dao.connect(investor1).createProposal('Proposal 1', ether(100), recipient.address);
+      result = await transaction.wait();
     });
 
-    it('rejects non-investor', async () => {
-      await expect(dao.connect(user).createProposal('Proposal 1', ether(100), recipient.address)).to
-        .be.reverted;
+    describe('Success', () => {
+      beforeEach(async () => {
+        transaction = await dao.connect(investor1).vote(1);
+        result = await transaction.wait();
+      });
+
+      it('updates vote count', async () => {
+        const proposal = await dao.proposals(1);
+        expect(proposal.votes).to.equal(tokens(200000));
+      });
+
+      it('emits vote event', async () => {
+        await expect(transaction).to.emit(dao, 'Vote').withArgs(1, investor1.address);
+      });
+      // it('updates proposal mapping', async () => {
+      //   const proposal = await dao.proposals(1);
+      //   expect(proposal.id).to.equal(1);
+      //   expect(proposal.amount).to.equal(ether(100));
+      //   expect(proposal.recipient).to.equal(recipient.address);
+      // });
+      // it('emits a propose event', async () => {
+      //   await expect(transaction)
+      //     .to.emit(dao, 'Propose')
+      //     .withArgs(1, ether(100), recipient.address, investor1.address);
+      // });
+    });
+
+    describe('Failure', () => {
+      // it('rejects invalid amount', async () => {
+      //   await expect(
+      //     dao.connect(investor1).createProposal('Proposal 1', ether(1000), recipient.address)
+      //   ).to.be.reverted;
+      // });
+      it('rejects non-investor', async () => {
+        await expect(dao.connect(user).vote(1)).to.be.reverted;
+      });
+
+      it('rejects double voting', async () => {
+        transaction = await dao.connect(investor1).vote(1);
+        await transaction.wait();
+
+        await expect(dao.connect(investor1).vote(1)).to.be.reverted;
+      });
     });
   });
 });
