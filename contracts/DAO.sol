@@ -27,6 +27,7 @@ contract DAO {
     event Propose(uint id, uint256 amount, address recipient, address creator);
 
     event Vote(uint256 id, address investor);
+
     event Finalize(uint256 id);
 
     constructor(Token _token, uint256 _quorum) {
@@ -45,7 +46,7 @@ contract DAO {
 
     // Create Proposal
     function createProposal(string memory _name, uint256 _amount, address payable _recipient) external onlyInvestor {
-        require(address(this).balance >= _amount);
+        require(address(this).balance >= _amount), "Invalid amount";
 
         proposalCount++;
         // Create a proposal
@@ -93,6 +94,7 @@ contract DAO {
 
         // Transfer funds to recipient
         (bool sent, ) = proposal.recipient.call{value: proposal.amount}('');
+        
         require(sent);
 
         // Emit event
