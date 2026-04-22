@@ -45,6 +45,7 @@ const Proposals = ({ provider, dao, proposals, quorum, setIsLoading }) => {
             <th>Total Votes</th>
             <th>Cast Vote</th>
             <th>Finalize</th>
+            <th>Proposal Description</th>
           </tr>
         </thead>
         <tbody>
@@ -75,6 +76,7 @@ const Proposals = ({ provider, dao, proposals, quorum, setIsLoading }) => {
                   </Button>
                 )}
               </td>
+              <td>{proposal.description}</td>
             </tr>
           ))}
         </tbody>

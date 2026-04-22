@@ -15,6 +15,7 @@ contract DAO {
         uint256 amount;
         address payable recipient;
         int256 votes;
+        string description;
         bool finalized;
     }
 
@@ -45,13 +46,13 @@ contract DAO {
     }
 
     // Create Proposal
-    function createProposal(string memory _name, uint256 _amount, address payable _recipient) external onlyInvestor {
+    function createProposal(string memory _name, uint256 _amount, address payable _recipient, string memory _description) external onlyInvestor {
         require(address(this).balance >= _amount, 'Invalid amount');
 
         proposalCount++;
         // Create a proposal
 
-        proposals[proposalCount] = Proposal(proposalCount, _name, _amount, _recipient, 0, false);
+        proposals[proposalCount] = Proposal(proposalCount, _name, _amount, _recipient, 0, _description, false);
 
         emit Propose(proposalCount, _amount, _recipient, msg.sender);
     }
