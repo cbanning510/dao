@@ -7,14 +7,14 @@ import './Token.sol';
 contract DAO {
     address owner;
     Token public token;
-    uint256 public quorum;
+    int256 public quorum;
 
     struct Proposal {
         uint256 id;
         string name;
         uint256 amount;
         address payable recipient;
-        uint256 votes;
+        int256 votes;
         bool finalized;
     }
 
@@ -30,7 +30,7 @@ contract DAO {
 
     event Finalize(uint256 id);
 
-    constructor(Token _token, uint256 _quorum) {
+    constructor(Token _token, int256 _quorum) {
         owner = msg.sender;
         token = _token;
         quorum = _quorum;
@@ -46,7 +46,7 @@ contract DAO {
 
     // Create Proposal
     function createProposal(string memory _name, uint256 _amount, address payable _recipient) external onlyInvestor {
-        require(address(this).balance >= _amount), "Invalid amount";
+        require(address(this).balance >= _amount, 'Invalid amount');
 
         proposalCount++;
         // Create a proposal
@@ -66,7 +66,24 @@ contract DAO {
         require(!votes[msg.sender][_id], 'already voted');
 
         // update votes
-        proposal.votes += token.balanceOf(msg.sender);
+        proposal.votes += int256(token.balanceOf(msg.sender));
+
+        // Track that user has voted
+        votes[msg.sender][_id] = true;
+
+        // Emit an event
+        emit Vote(_id, msg.sender);
+    }
+
+    function downVote(uint256 _id) external onlyInvestor {
+        // Fetch proposal from mapping by id
+        Proposal storage proposal = proposals[_id];
+
+        // Dont' let investors vote twice
+        require(!votes[msg.sender][_id], 'already voted');
+
+        // update votes
+        proposal.votes -= int256(token.balanceOf(msg.sender));
 
         // Track that user has voted
         votes[msg.sender][_id] = true;
@@ -94,7 +111,7 @@ contract DAO {
 
         // Transfer funds to recipient
         (bool sent, ) = proposal.recipient.call{value: proposal.amount}('');
-        
+
         require(sent);
 
         // Emit event
